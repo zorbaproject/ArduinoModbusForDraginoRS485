@@ -8,18 +8,51 @@ The minimal hardware needed is:
 * Dragino RS485-BL (http://wiki.dragino.com/xwiki/bin/view/Main/User%20Manual%20for%20LoRaWAN%20End%20Nodes/test/#H1.Introduction)
 * Arduino UNO (https://docs.arduino.cc/hardware/uno-rev3)
 * MAX485 RS485 to TTL adapter pcb board
+![Alt text](/doc/bare_minimum_bb.png "Bare minimum setup")
+Connections:
+
+| From        | To           |
+| ------------- |:-------------:|
+| Arduino pin 4      | MAX485 pin DE |
+| Arduino pin 4      | MAX485 pin RE |
+| Arduino pin 1      | MAX485 pin DI |
+| Arduino pin 0      | MAX485 pin R0 |
+| Arduino 5V         | MAX485 pin VCC |
+| Arduino GND         | MAX485 pin GND |
+| MAX485 pin A       | Dragino pin A |
+| MAX485 pin B       | Dragino pin B |
 
 You can also add these other optional devices to Arduino:
 * 5V Relay pcb
-* DS18B20 sensor
+* DS18B20 temperature sensor
+![Alt text](/doc/full_example_bb.png "Full setup")
+
+Connections:
+
+| From        | To           |
+| ------------- |:-------------:|
+| Arduino pin 3      | Relay pin S |
+| Arduino 5V         | Relay pin VCC |
+| Arduino GND         | Relay pin GND |
+| Arduino pin 5      | DS18B20 pin DATA |
+| Arduino 3.3V or 5V      | DS18B20 pin VCC |
+| Arduino GND         | DS18B20 pin GND |
+
+Please remember to place a 4.7kOhm resistor between DS18B20 data and vcc pins. If you have a DS18B20 breakout pcb the resistor is probably already in place.
 
 And, only for debugging:
 * TTL to USB module for debugging Dragino
 * RS485 to USB adapter for debugging RS485 bus
 
+![Alt text](/doc/test-setup.png "Debugging setup")
+
 ## Basic concepts
 In modbus protocol, a slave keeps data (usually numbers) in registers. The master can ask slaves for their register's content.
+
 Arduino has an array of 16bit unsigned integers, which can hold 4 values. These will be the registers for Modbus protocol. Some of these array values will be written by the master using a Modbus command, others will be generated randomly by Arduino itself or set as the reading from a sensor (a DS18B20 thermometer).
+
+### Data Type
+All values in modbus are stored as 16bit unsigned integers (in brief: uint), because that's the most common data type in modbus use cases. This does not mean we can not represent other data types, they just need to be encoded as "uint". In this example, the first register is treated as a boolean, the second one as an unsigned integer, the third one as a signed integer (which allows negative numbers) and the third one as a float with 2 decimal digits.
 
 ## Configuring Arduino (upload code)
 This sketch should work out of the box, but you can change a few settings before uploading it to Arduino.
@@ -61,16 +94,17 @@ To test the RS485 connection between Dragino and Arduino, you can try this comma
 ```
 AT+CFGDEV=01 10 00 00 00 03 06 00 01 01 0E 80 B4 DA C8,1
 ```
+As soon as you run this command, you should see Arduino registers value changing. You can check this out on [Arduino Serial Monitor](#debug-with-arduino-serial-monitor).
 
 ### Explaination
 To write registers on the slave, we use function Code: 16 (hex: 0x10, Writes multiple holding registers)
 ```
 [Device ID 01] [Function Code 10] [Starting Register Address HI Byte 00] [Starting Register Address LO Byte 00] [Quantity of Registers to Write HI Byte 00] [Quantity of Registers to Write HI Byte 03] [Quantity of Data Bytes to Write 06] [Data bytes to write 00 01 01 0E 80 B4] [Two Byte CRC DA C8]
 ```
+This means we are writing 3 registers, starting from register number 0. The first one will hold the number 0x0001 (uint: 1), the second one will have 010E (uint: 270) value and the last one will store 80B4 (uint: 32948).
 
 ## Setup read command (designed to work with this Arduino sketch)
 ```
-AT+CFGDEV=01 03 00 00 00 04 44 09,1
 AT+COMMAND1=01 03 00 00 00 04 44 09,1
 AT+DATACUT1=15,2,3~15
 AT+CMDDL1=1000
@@ -135,7 +169,7 @@ wineserver -k
 
 
 
-# Arduino Serial debug
+# Debug with Arduino Serial Monitor
 
 At every reboot you should have these values in the register:
 ```
