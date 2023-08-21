@@ -187,6 +187,62 @@ Register 3 (int): 180
 Register 4 - Temperature (Celsius*100):2556
 ```
 
+# Payload decoder for TheThingsNetwork
+
+After registering Dragino RS485-BL in The Things Network Console, you can set a Custom javascript payload formatter to make to output readable.
+```
+function Decoder(bytes, port) {
+
+//Payload Formats of RS485-BL Deceive
+
+return {
+
+    //Battery,units:V
+
+    BatV:((bytes[0]<<8 | bytes[1])&0x7fff)/1000,
+
+    //GPIO_EXTI  
+
+    EXTI_Trigger:(bytes[0] & 0x80)? "TRUE":"FALSE",
+
+    //payload of version
+
+    Pay_ver:bytes[2],
+    
+    Pay_hex: Array.from(bytes.slice(4), function(byte) {
+    return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+  }).join('').match(/.{1,4}/g)
+
+    }; 
+
+}
+```
+## Payload decoding example
+If Dragino transmitted, for example, this payload
+```
+0D 31 01 06 00 01 00 00 00 1E 21 75 00 00 00 00
+```
+which is 
+```
+DTEBBgABAAAAHiF1AAAAAA==
+```
+in base64, the decoding function should give you this result:
+```
+  "BatV": 3.377,
+  "EXTI_Trigger": "FALSE",
+  "Pay_hex": [
+    "0001",
+    "0000",
+    "001e",
+    "2175",
+    "0000",
+    "0000"
+  ],
+  "Pay_ver": 1
+}
+```
+The first 3 bytes are being used by Dragino to store informations about itself, the fourth byte stores the number of registers (6, in this case) and the following byte couples represent our 16bit registers. This javascript function uses a regex to split the values previously converted into a string. Another approach could be to use a for loop reading 2 bytes at a time and processing them as integers. But the hexadecimal string is probably better for debugging purposes.
+
 # References
 https://dghcorp.com/modbus-overview/
 https://logicio.com/HTML/ioext-modbuscommands.htm
